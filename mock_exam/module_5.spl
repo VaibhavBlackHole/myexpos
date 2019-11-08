@@ -1,0 +1,82 @@
+// THIS IS SCHEDULER
+// This stores the PTBR, PTLR, KPTR
+// Then it finds the new process to run, set it's SP, PTBR, PTLR
+// Then it stores newPID and returns to the timer_interrupt
+
+//[TERMINAL_STATUS_TABLE + 2] = [TERMINAL_STATUS_TABLE + 2]+1;		// Using unused bit
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+SP = SP+1;
+[SP]=BP;				// BASE POINTER on top of kernel stack
+alias process_table_entry R1;
+process_table_entry = PROCESS_TABLE + currentPID * 16;
+[process_table_entry + 12] = SP % 512;		// KPTR
+[process_table_entry + 14] = PTBR;			// store KPTR, PTLR, PTBR
+[process_table_entry + 15] = PTLR;
+
+alias pid1 R10;
+pid1 =  1;
+while(pid1<MAX_PROC_NUM) do
+	if([PROCESS_TABLE + pid1*16 + 4]==WAIT_PROCESS) then
+		alias pid2 R11;
+		alias counter R12;
+		pid2 = [PROCESS_TABLE + pid1*16 + 5];
+		counter = 1;
+		while(pid1!=pid2 && counter<MAX_PROC_NUM) do
+			if([PROCESS_TABLE + pid2*16 +4]!=WAIT_PROCESS) then
+				break;	
+			endif;
+		//	breakpoint;
+			pid2 = [PROCESS_TABLE + pid2*16 + 5];
+			counter = counter+1;
+		endwhile;
+		if(pid2==pid1) then				// Deadlock
+			pid2 = [PROCESS_TABLE + pid1*16 + 5];
+			print "deadlock";
+			print pid1;
+			print pid2;
+		//	breakpoint;
+			while(pid2!=pid1) do
+				pid2 = [PROCESS_TABLE + pid2*16 + 5];
+				print pid2;
+				//breakpoint;
+			endwhile;
+			break;
+		endif;
+	endif;
+	pid1 = pid1+1;
+endwhile;
+
+alias PID R2;
+alias newPID R3;
+PID = (currentPID+1)%16;
+while(PID!=currentPID)
+	do
+		if([PROCESS_TABLE + (PID*16) +4]==CREATED || [PROCESS_TABLE + (PID*16) +4]==READY)
+			then
+				newPID = PID;
+				break;
+		else
+			newPID = 0;
+		endif;
+		PID = (PID+1)%16;
+endwhile;
+
+alias new_process_table R4;			// Restore the SP, PTBR, PTLR
+new_process_table = PROCESS_TABLE + newPID * 16;
+SP =  [new_process_table + 11] * 512 + [new_process_table + 12] ;
+PTBR = [new_process_table + 14];
+PTLR = [new_process_table + 15];
+[SYSTEM_STATUS_TABLE + 1] = newPID;
+if([new_process_table + 4] == CREATED) then		// process has just been forked from parent
+	[new_process_table + 4] = RUNNING;
+	SP = [new_process_table + 13];			// SP = USER Stack
+	BP = [[new_process_table + 11] * 512];
+	[new_process_table + 9]=0;
+	ireturn;
+endif;
+[new_process_table + 4] = RUNNING;		// RUNNING before
+BP=[SP];
+SP = SP-1;
+[new_process_table + 9]=0;
+return;

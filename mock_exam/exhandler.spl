@@ -1,0 +1,52 @@
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = -1;			// exception handler
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 -1;
+backup;
+multipush(EIP);
+if((EC!=0) || ([PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13]==PTLR*512-1)) then
+	if([PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13]==PTLR*512 -1) then
+		print("stack is full");
+	endif;
+	if(EC==1) then
+		print("ILL INSTR");
+	endif;
+	if(EC==2) then
+		print("ILL MEM_ACC");
+	endif;
+	if(EC==3) then
+		print("ARITH EXC");
+	endif;
+	R1 = 3;					// EXIT PROCESS
+	R2 = [SYSTEM_STATUS_TABLE +1];
+	call PROCESS_MANAGER;
+	call SCHEDULER;
+	return;
+endif;
+if(EPN>=2 && EPN<=3) then		// HEAP PAGE fault
+	alias pid R3;
+	pid = [SYSTEM_STATUS_TABLE +1];
+	multipush(R3);
+	R1 = 1;				// get_free_page
+	call MEMORY_MANAGER;
+	multipop(R3);
+	[PAGE_TABLE_BASE +  (pid* 20) + 2*EPN]=R0;
+	[PAGE_TABLE_BASE + (pid * 20) + 2*EPN +1]="1110";	
+endif;
+if(EPN>=4 &&  EPN<=7) then			// EPN is the error_page_number
+	alias pid R3;
+	pid = [SYSTEM_STATUS_TABLE + 1];
+	multipush(R3);
+	R1 = 5;
+	R2 = [DISK_MAP_TABLE + pid*10 + 4 + (EPN - 4)];
+	call MEMORY_MANAGER;
+	multipop(R3);
+	[PAGE_TABLE_BASE + (pid * 20) + 2*EPN] = R0;
+	[PAGE_TABLE_BASE + (pid * 20) + 2*EPN + 1] = "1100";
+endif;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;			// exception handler
+multipop(EIP);
+restore;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+SP = SP + 1;
+[[PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 2*(SP/512)] * 512 + (SP%512)] = EIP;		// as we are in userMODE
+ireturn;

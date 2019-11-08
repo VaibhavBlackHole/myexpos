@@ -1,0 +1,29 @@
+load --module 0 $HOME/os_lab/mock_exam/module_0.xsm
+load --module 4 $HOME/os_lab/mock_exam/module_4.xsm
+load --module 7 $HOME/os_lab/mock_exam/boot_module.xsm
+load --module 1 $HOME/os_lab/mock_exam/module_1.xsm
+load --module 2 $HOME/os_lab/mock_exam/module_2.xsm
+load --module 5 $HOME/os_lab/mock_exam/module_5.xsm
+load --int=timer $HOME/os_lab/mock_exam/sample_timer.xsm
+load --os $HOME/os_lab/mock_exam/os_startup.xsm
+load --idle $HOME/os_lab/mock_exam/idle.xsm
+load --init $HOME/os_lab/mock_exam/shell.xsm
+load --exec $HOME/os_lab/mock_exam/test/test1.xsm
+load --exec $HOME/os_lab/mock_exam/test/test2.xsm
+load --exec $HOME/os_lab/mock_exam/test/test3.xsm
+load --exec $HOME/os_lab/mock_exam/test/test4.xsm
+load --exec $HOME/os_lab/mock_exam/seqSort.xsm
+load --exec $HOME/os_lab/mock_exam/conSort.xsm
+load --exhandler $HOME/os_lab/mock_exam/exhandler.xsm
+load --library ../expl/library.lib
+load --int=10 $HOME/os_lab/mock_exam/int10.xsm
+load --int=7 $HOME/os_lab/mock_exam/sample_int7.xsm
+load --int=6 $HOME/os_lab/mock_exam/int6.xsm
+load --int=console $HOME/os_lab/mock_exam/console_int.xsm
+load --int=9  $HOME/os_lab/mock_exam/exec_int9.xsm
+load --int=8 $HOME/os_lab/mock_exam/int8.xsm
+load --int=disk $HOME/os_lab/mock_exam/disk_int.xsm
+load --int=11 $HOME/os_lab/mock_exam/int11.xsm
+load --int=15 $HOME/os_lab/mock_exam/int15.xsm
+load --int=13 $HOME/os_lab/mock_exam/int13.xsm
+load --int=14 $HOME/os_lab/mock_exam/int14.xsm
