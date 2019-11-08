@@ -1,0 +1,38 @@
+POP R0			// IP + 2
+POP R1			// Stores the return value
+POP R2			// arguments Three
+POP R3
+POP R4			
+POP R5			// System call number
+MOV R6 "Write"
+EQ R6 R5
+JZ R6 62			// Address of instruction at line number 31
+PUSH R0				// for IP + 2 , IP+2 at the bottom, from where you called library
+MOV R5 5			// Storing system call number corresponding to print 
+PUSH R5				// Pushing system call number
+PUSH R4
+PUSH R3				// Push 3 arguments
+PUSH R2
+PUSH R1				// push return value
+INT 7
+POP R1				// pop return value
+POP R2				// arguments
+POP R3
+POP R4
+POP R5				// System call number
+POP R6				// IP+2 value
+PUSH R5				// System call number
+PUSH R4				// Three arguments
+PUSH R3
+PUSH R2
+PUSH R1				// return value
+PUSH R6				// PUSH IP+2, now IP+2 is again on the top
+RET
+MOV R1 -1			// storing -1 in return value, printing not possible
+PUSH R5				// System call number
+PUSH R4				// Three arguments
+PUSH R3
+PUSH R2
+PUSH R1				// return value
+PUSH R6				// PUSH IP+2
+RET
