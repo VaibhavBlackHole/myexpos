@@ -1,0 +1,9 @@
+load --int=timer $HOME/os_lab/stage12/a2sample_timer.xsm
+load --os $HOME/os_lab/stage13/os_startup.xsm
+load --os $HOME/os_lab/stage13/os_startup.xsm
+load --init $HOME/os_lab/stage12/a1init.xsm
+load --idle $HOME/os_lab/stage12/a1idle.xsm
+load --exhandler $HOME/os_lab/stage12/haltprog.xsm
+load --library ../expl/library.lib
+load --int=10 $HOME/os_lab/stage12/haltprog.xsm
+load --int=7 $HOME/os_lab/stage12/a1sample_int7.xsm
