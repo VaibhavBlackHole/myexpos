@@ -1,0 +1,11 @@
+load --int=timer $HOME/stage14/sample_timer.xsm
+load --os $HOME/stage14/os_startup.xsm
+load --idle $HOME/stage14/idle.xsm
+load --init $HOME/stage14/odd.xsm
+load --exec $HOME/stage14/even.xsm
+load --exhandler $HOME/stage14/haltprog.xsm
+load --library ../expl/library.lib
+load --int=10 $HOME/stage14/int10.xsm
+load --int=7 $HOME/stage14/sample_int7.xsm
+load --module 5 $HOME/stage14/module_5.xsm
+load --module 7 $HOME/stage14/boot_module.xsm

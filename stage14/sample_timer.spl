@@ -1,0 +1,27 @@
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;		// SP in process table entry, logical SP
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;	// SP = beginning of kernel stack, top of kernel stack, during backup SP gets incremented by 1
+backup;
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE+1];			// current pid
+alias process_table_entry R1;
+process_table_entry = PROCESS_TABLE + currentPID * 16;
+
+// PTBR, PTLR, KPTR of current running process is stored in module_5
+// Module_5 also schedules the next process and stores the required registers
+
+[process_table_entry + 4] = READY;			// Mode change to ready
+
+alias i R10;
+i=0;
+while(i<16)
+	do
+		[PROCESS_TABLE + i*16] = [PROCESS_TABLE + i*16] + 1;			// increasing tick by one
+		i = i+1;
+endwhile;
+breakpoint;
+call MOD_5;					// context switch (scheduler)
+breakpoint;
+restore;
+SP = [ PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16)+ 13];		// restore SP to user Stack
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;			// SET MODE
+ireturn;			// Go to the user mode, -----> not return
