@@ -16,4 +16,4 @@ multipop(R0,R1);
 restore;
 SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
 [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
-ireturn;			// read is done, go to the next instruction in user mode of code
+ireturn;			  // read is done, go to the next instruction in user mode of code
