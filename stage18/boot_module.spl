@@ -112,7 +112,7 @@ alias i R0;
 i = 2;
 while(i<16)					// max number of process are 16 in EXPOS
 	do
-		[PROCESS_TABLE + 4 + 16*i] = TERMINATED;
+		[PROCESS_TABLE + 4 + 16 * i] = TERMINATED;
 		i = i+1;
 endwhile;
 
