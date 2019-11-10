@@ -1,0 +1,45 @@
+// THIS IS MEMORY MANAGER
+
+alias functionNum R1;
+if(functionNum==1) then			// get_free_page
+	[SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] + 1;		// Increase the wait_mem_count
+	
+	while([SYSTEM_STATUS_TABLE + 2]==0) do	// memory is full
+		[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 4] = WAIT_MEM;
+		multipush(R0,R1,R2,R3,R4,R5);
+		call MOD_5;			// scheduler
+		multipop(R0,R1,R2,R3,R4,R5);
+	endwhile;
+	[SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] - 1;
+	[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+	
+	alias memList R2;
+	memList = 0;			// loop through the memList
+	while(memList<MAX_MEM_PAGE) do
+		if([MEMORY_FREE_LIST + memList] == 0) then
+			[MEMORY_FREE_LIST + memList]=1;
+			R0 = memList;
+			breakpoint;
+			return;
+		endif;
+		memList = memList + 1;
+	endwhile;
+endif;
+
+if(functionNum==2) then				// release page
+	alias uapn R2;			// input in release page
+	[MEMORY_FREE_LIST + uapn]=[MEMORY_FREE_LIST + uapn]-1;
+	if([MEMORY_FREE_LIST + uapn]==0) then
+		[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;
+	endif;
+	alias counter R3;
+	counter = 0;			// loop through the process_table
+	while(counter<16) do		// counter is the PID, max_num_process 
+		if([PROCESS_TABLE + (counter * 16) + 4] == WAIT_MEM) then
+			[PROCESS_TABLE + (counter * 16) + 4] = READY;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	breakpoint;
+	return;
+endif;

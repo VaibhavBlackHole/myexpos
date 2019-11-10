@@ -1,0 +1,52 @@
+// THIS IS PROCESS_MANAGER
+alias functionNum R1;
+alias currentPID R2;			// current PID is passed for module_1
+if(functionNum==2) then			// free_user_area_page
+	alias uapn R3;
+	uapn = [PROCESS_TABLE + (currentPID * 16) + 11];
+	multipush(R0,R1,R2,R3,R4,R5);		// store before module call
+	R1 = 2;			// release Page
+	R2 = uapn;			// see the arguments release page takes
+	call MOD_2;			// Memory_Manager
+	multipop(R0,R1,R2,R3,R4,R5);
+	return;	
+endif;
+
+if(functionNum==3) then			// exit process
+	multipush(R0,R1,R2,R3,R4,R5);
+	R1 = 4;				// free_page_table
+	R2 = currentPID;
+	call MOD_1;
+	multipop(R0,R1,R2,R3,R4,R5);
+	multipush(R0,R1,R2,R3,R4,R5);
+	R1 = 2;				// free_user_area_page
+	R2 = currentPID;
+	call MOD_1;
+	multipop(R0,R1,R2,R3,R4,R5);
+	[PROCESS_TABLE + (currentPID * 16) + 4] = TERMINATED;
+	return;
+endif;
+
+if(functionNum==4) then			// free_page_table
+	alias pageTable R4;
+	pageTable = PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20);
+	[pageTable + 0] = -1;
+	[pageTable + 1] = "0000";	// READ only
+	[pageTable + 2] = -1;
+	[pageTable + 3] = "0000";
+	alias pageNum R5;
+	pageNum = 4;			// 20 pages for one process
+	while(pageNum < 20) do
+		if([pageTable + pageNum]!=-1) then
+			multipush(R0,R1,R2,R3,R4,R5);
+			R1 = 2;		// Release_page
+			R2 = [pageTable + pageNum];		// takes uapn
+			call MOD_2;
+			multipop(R0,R1,R2,R3,R4,R5);
+			[pageTable + pageNum] = -1;
+			[pageTable + pageNum + 1] = "0000";
+		endif;
+		pageNum = pageNum + 2;
+	endwhile;
+	return;
+endif;

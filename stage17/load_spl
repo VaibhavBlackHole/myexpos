@@ -1,0 +1,13 @@
+./spl $HOME/os_lab/stage17/sample_timer.spl
+./spl $HOME/os_lab/stage17/os_startup.spl
+./spl $HOME/os_lab/stage17/int10.spl
+./spl $HOME/os_lab/stage17/sample_int7.spl
+./spl $HOME/os_lab/stage17/module_5.spl
+./spl $HOME/os_lab/stage17/int6.spl
+./spl $HOME/os_lab/stage17/console_int.spl
+./spl $HOME/os_lab/stage17/module_0.spl
+./spl $HOME/os_lab/stage17/module_4.spl
+./spl $HOME/os_lab/stage17/boot_module.spl
+./spl $HOME/os_lab/stage17/exec_int9.spl
+./spl $HOME/os_lab/stage17/module_1.spl
+./spl $HOME/os_lab/stage17/module_2.spl

@@ -1,0 +1,119 @@
+// THIS IS INT_9 file for exec system call
+
+alias userSP R0;
+userSP = SP;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 -1;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 9;		// MODE to system call number of exec
+
+alias fileName R1;
+fileName = [[PTBR + 2*((userSP - 4) / 512)] * 512 + ((userSP - 4) % 512)];
+alias count R2;
+count = 0;
+
+// size of each table is 16 and max number of files are 60
+while(count<MAX_FILE_NUM) do
+	if([INODE_TABLE + (count * 16) + 1]==fileName && [INODE_TABLE + (count * 16) + 0]==EXEC) then
+		break;
+	endif;
+	count = count+1;
+endwhile;
+
+if(count==MAX_FILE_NUM) then
+	alias physicalAddrRetVal R5;
+	physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+	[physicalAddrRetVal] = -1;
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+	SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+	ireturn;
+endif;
+
+alias inode_index R3;
+inode_index = count;
+multipush(R0,R1,R2,R3);		// before calling module save context
+R1 = 3;				// function number for exit
+R2 = [SYSTEM_STATUS_TABLE + 1];	// current PID in R2
+call MOD_1;				// Process_Manager
+
+multipop(R0,R1,R2,R3);
+alias userAreaPageNum R4;
+userAreaPageNum = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11];			// Deallocated page number
+[MEMORY_FREE_LIST + userAreaPageNum] = [MEMORY_FREE_LIST + userAreaPageNum] + 1;
+[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2]-1; 			// Reclaim the same page
+SP = userAreaPageNum * 512 -1;	// initialize kernel stack of new process
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 4] = RUNNING;		// new process is in running state
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 7] = inode_index;		// store the inode index field
+
+
+// Allocate new pages and set page table entries for new process
+// currentPID gives the process_number
+
+
+// Library
+alias pageTable R5;
+pageTable = PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20);
+[pageTable + 0] = 63;
+[pageTable + 1] = "0100";	// READ only
+[pageTable + 2] = 64;
+[pageTable + 3] = "0100";
+multipush(R0,R1,R2,R3,R4,R5);		// multipush before any module call
+
+// Stack 
+R1 = 1;			// Get free page function number
+call MOD_2;			// Memory Manager
+[pageTable + 16]= R0;
+[pageTable + 17]= "0110";
+R1 = 1;			// Get free page function number
+call MOD_2;			// 2 times for 2 pages of stack
+[pageTable + 18]= R0;
+[pageTable + 19]= "0110";
+
+// Heap
+// Similarly 2 times for heap
+R1 = 1;			// Get free page function number
+call MOD_2;			// Memory Manager
+[pageTable + 4]= R0;
+[pageTable + 5]= "0110";
+R1 = 1;			// Get free page function number
+call MOD_2;			// 2 times for 2 pages of stack
+[pageTable + 6]= R0;
+[pageTable + 7]= "0110";
+
+
+multipop(R0,R1,R2,R3,R4,R5);
+
+// CODE
+alias NumBlocks R6;
+alias blocks R7;
+blocks = 0;
+NumBlocks = [INODE_TABLE + (inode_index * 16) + 2] / 512;		// FILE SIZE / 512
+
+if([INODE_TABLE + inode_index * 16 + 2] % 512 !=0) then			// as NumBlocks need not be divisible by 512
+	NumBlocks = NumBlocks + 1;
+endif;
+
+while(NumBlocks>0) do
+	multipush(R0,R1,R2,R3,R4,R5,R6);		// multipush before any module call
+	R1 = 1;			// Get free page function number
+	call MOD_2;			// 2 times for 2 pages of stack
+	[pageTable + 8 + blocks]= R0;
+	[pageTable + 9 + blocks]= "0110";
+	multipop(R0,R1,R2,R3,R4,R5,R6);
+	blocks = blocks + 2;
+	NumBlocks = NumBlocks -1;
+endwhile;
+
+
+// loadi(page_number, block_number)....., for loading the code blocks
+// It loads block from disk to page specified by page_number to memory
+blocks = 0;			// INODE_TABLE has max 4 DATA BLOCKS for one process
+while(blocks<4) do
+	if([INODE_TABLE + (inode_index * 16) + 8 + blocks]!=-1) then
+		loadi([pageTable + 8 + (2 * blocks)],[INODE_TABLE + (inode_index * 16) + 8 + blocks]);
+	endif;
+	blocks = blocks + 1;
+endwhile;
+[[(pageTable + 16)] * 512]=[[pageTable + 8] * 512 + 1];		// Set up the SP to code's entry point
+SP = 8*512;			// change SP to user Stack
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] =0;
+ireturn;
