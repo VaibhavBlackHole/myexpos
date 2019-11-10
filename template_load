@@ -1,0 +1,6 @@
+load --init $HOME/os_lab/lab2/stage11ass2.xsm
+load --exhandler ../spl/spl_progs/haltprog.xsm
+load --library ../expl/library.lib
+load --int=10 $HOME/myexpos/spl/spl_progs/haltprog.xsm
+load --int=7 $HOME/myexpos/spl/spl_progs/sample_int7.xsm
+load --os $HOME/os_lab/lab2/stage10os_startup.xsm

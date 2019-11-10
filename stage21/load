@@ -1,0 +1,23 @@
+load --module 0 $HOME/os_lab/stage21/module_0.xsm
+load --module 4 $HOME/os_lab/stage21/module_4.xsm
+load --module 7 $HOME/os_lab/stage21/boot_module.xsm
+load --module 1 $HOME/os_lab/stage21/module_1.xsm
+load --module 2 $HOME/os_lab/stage21/module_2.xsm
+load --module 5 $HOME/os_lab/stage21/module_5.xsm
+load --int=timer $HOME/os_lab/stage21/sample_timer.xsm
+load --os $HOME/os_lab/stage21/os_startup.xsm
+load --idle $HOME/os_lab/stage21/idle.xsm
+load --init $HOME/os_lab/stage21/shell.xsm
+load --exec $HOME/os_lab/stage21/fork.xsm
+load --exec $HOME/os_lab/stage21/pid.xsm
+load --exhandler $HOME/os_lab/stage21/exhandler.xsm
+load --library ../expl/library.lib
+load --int=10 $HOME/os_lab/stage21/int10.xsm
+load --int=7 $HOME/os_lab/stage21/sample_int7.xsm
+load --int=6 $HOME/os_lab/stage21/int6.xsm
+load --int=console $HOME/os_lab/stage21/console_int.xsm
+load --int=9  $HOME/os_lab/stage21/exec_int9.xsm
+load --int=8 $HOME/os_lab/stage21/int8.xsm
+load --int=disk $HOME/os_lab/stage21/disk_int.xsm
+load --int=11 $HOME/os_lab/stage21/int11.xsm
+load --int=15 $HOME/os_lab/stage21/int15.xsm

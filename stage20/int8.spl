@@ -1,0 +1,135 @@
+// This is fork(), interrupt file
+
+alias userSP R5;
+userSP = SP;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 -1;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 8;		// MODE is sys_call_no fork()
+R1 = 1;					// function_no ---> Get_Pcb_Entry
+call PROCESS_MANAGER;			// returns the index of new_process_table for child
+alias childPID R1;
+childPID = R0;
+if(R0==-1) then
+	alias physicalAddrRetVal R5;
+	physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+	[physicalAddrRetVal] = -1;
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+	SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+	ireturn;
+endif;
+
+if([PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 4]==-1) then
+	multipush(R0,R1,R5);
+	R1 = 1;						// Get_Free_Page for heap
+	call MEMORY_MANAGER;				// R0 has the free page number
+	[PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 4]=R0;
+	[PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 5]="1110";
+		
+	R1 = 1;						// Get_Free_Page for heap
+	call MEMORY_MANAGER;
+	[PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 6]=R0;
+	[PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 7]="1110";
+
+	multipop(R0,R1,R5);
+endif;
+
+// For stack of child process
+multipush(R1,R5);
+R1 = 1;					
+call MEMORY_MANAGER;
+multipop(R1,R5);						// R1 has the childPID
+[PAGE_TABLE_BASE + (childPID * 20) + 16]=R0;
+[PAGE_TABLE_BASE + (childPID * 20) + 17]="0110";		// hence we need to extract it
+	
+multipush(R1,R5);
+R1 = 1;				
+call MEMORY_MANAGER;
+multipop(R1,R5);
+[PAGE_TABLE_BASE +  (childPID * 20) + 18]=R0;
+[PAGE_TABLE_BASE + (childPID * 20) + 19]="0110";
+
+// For User_Area_Page_Number
+multipush(R1,R5);
+R1 = 1;				
+call MEMORY_MANAGER;
+multipop(R1,R5);
+[PROCESS_TABLE +  (childPID * 16) + 11]=R0;
+
+
+
+[PROCESS_TABLE + (childPID * 16) + 3] = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 3];
+[PROCESS_TABLE + (childPID * 16) + 6] = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 6];
+[PROCESS_TABLE + (childPID * 16) + 10] = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 10];
+[PROCESS_TABLE + (childPID * 16) + 7] = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 7];
+[PROCESS_TABLE + (childPID * 16) + 13] = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+[PROCESS_TABLE + (childPID * 16) + 0] = 0;			// Tick
+[PROCESS_TABLE + (childPID * 16) + 9] = 0;			// MODE
+[PROCESS_TABLE + (childPID * 16) + 12] = 0;			// KPTR
+[PROCESS_TABLE + (childPID * 16) + 2] = [SYSTEM_STATUS_TABLE + 1];		// PPID
+[PROCESS_TABLE + (childPID * 16) + 4] = CREATED;				// STATE
+
+// PID, PTBR, PTLR are already initialized in GET_PCB_ENTRY function
+
+alias parentUAPN R2;
+alias childUAPN R3;
+
+parentUAPN = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11];
+childUAPN = [PROCESS_TABLE  + (childPID * 16) + 11];
+
+alias i R4;
+i=496;
+while(i<512) do
+	[parentUAPN * 512 + i]=[childUAPN * 512 + i];
+	i = i+1;
+endwhile;
+
+i=0;
+while(i<10) do
+	[DISK_MAP_TABLE + (childPID * 10) + i] = [DISK_MAP_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 10) + i];
+	i = i+1;
+endwhile;
+
+i = 0;							// library, code and heap of child
+alias page R7;
+while(i<16) do
+	if((i%2)==0) then
+		page = [PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1]*20) + i];
+		[MEMORY_FREE_LIST + page] = [MEMORY_FREE_LIST + page] + 1;
+	endif;
+	[PAGE_TABLE_BASE + (childPID * 20) + i]= [PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + i];
+	i = i+1;
+endwhile;
+
+
+// copy the words, by going to the corresponding page words
+alias stpPage1 R2;
+alias stpPage2 R3;
+alias stcPage1 R5;
+alias stcPage2 R6;
+
+stpPage1 = [PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 16];
+stpPage2 = [PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 18];
+stcPage1 = [PAGE_TABLE_BASE + (childPID * 20) + 16];
+stcPage2 = [PAGE_TABLE_BASE + (childPID * 20) + 18];
+
+i = 0;
+while(i<512) do
+	[stcPage1 * 512 + i] = [stpPage1 * 512 + i];
+	[stcPage2 * 512 + i] = [stpPage2 * 512 + i];
+	i = i+1;
+endwhile;
+
+alias uptr R3;
+alias ptbrChild R4;
+uptr = [PROCESS_TABLE + (childPID * 16) + 13];					// userSP
+ptbrChild = [PROCESS_TABLE + (childPID * 16) + 14];				// PTBR
+[([ptbrChild + 2 * ((uptr - 1) / 512)] * 512) + ((uptr - 1) % 512)]=0;		// return value CHILD
+
+uptr = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+[([PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE+ 1] * 20) + 2 * ((uptr - 1) / 512)] * 512) + ((uptr - 1) % 512)]=childPID;
+
+
+[[PROCESS_TABLE + (childPID * 16) + 11] * 512] = BP;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;		// MODE
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13]; 
+ireturn;

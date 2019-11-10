@@ -1,0 +1,16 @@
+./spl $HOME/os_lab/stage20/sample_timer.spl
+./spl $HOME/os_lab/stage20/os_startup.spl
+./spl $HOME/os_lab/stage20/int10.spl
+./spl $HOME/os_lab/stage20/sample_int7.spl
+./spl $HOME/os_lab/stage20/module_5.spl
+./spl $HOME/os_lab/stage20/int6.spl
+./spl $HOME/os_lab/stage20/console_int.spl
+./spl $HOME/os_lab/stage20/module_0.spl
+./spl $HOME/os_lab/stage20/module_4.spl
+./spl $HOME/os_lab/stage20/boot_module.spl
+./spl $HOME/os_lab/stage20/exec_int9.spl
+./spl $HOME/os_lab/stage20/module_1.spl
+./spl $HOME/os_lab/stage20/module_2.spl
+./spl $HOME/os_lab/stage20/disk_int.spl
+./spl $HOME/os_lab/stage20/exhandler.spl
+./spl $HOME/os_lab/stage20/int8.spl

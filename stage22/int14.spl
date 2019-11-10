@@ -1,0 +1,68 @@
+// INT 14 for SemLock and SemUnlock
+
+alias syscallNo R4;
+alias userSP R5;
+userSP = SP;
+syscallNo = [[PTBR + 2*((userSP - 5) / 512)] * 512 + ((userSP - 5) % 512)];
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 -1;
+if(syscallNo==19) then								// semlock
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 19;
+	alias semid R6;								// Semaphore Descriptor
+	semid = [([PTBR + 2 * ((userSP - 4) / 512)] * 512) + ((userSP - 4) % 512)];
+	if(semid<0 || semid>7 || [[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]*512 + 2*semid + 496]!=1) then
+		[([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP -1) % 512)]=-1;
+		SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+		[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9]=0;
+		ireturn;
+	endif;
+	alias semindex R7;							// Semaphore Index in SemaphoreTable
+	semindex = [[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]*512 + 2*semid + 496 +1];
+	while([SEMAPHORE_TABLE + semindex*4]!=-1 && [SEMAPHORE_TABLE + semindex*4]!=[SYSTEM_STATUS_TABLE + 1]) do			// Locking pid == CurrentPID
+		[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 4] = WAIT_SEMAPHORE;
+		[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 5] = semindex;
+		multipush(R4,R5,R6,R7);
+		call SCHEDULER; 
+		multipop(R4,R5,R6,R7);
+	endwhile;
+	[SEMAPHORE_TABLE + semindex * 4] = [SYSTEM_STATUS_TABLE + 1];
+	[([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP -1) % 512)]=0;
+	SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9]=0;
+	ireturn;
+endif;
+
+if(syscallNo==20) then				// semunlock
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 20;
+	alias semid R6;								// Semaphore Descriptor
+	semid = [([PTBR + 2 * ((userSP - 4) / 512)] * 512) + ((userSP - 4) % 512)];
+	if(semid<0 || semid>7 || [[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]*512 + 2*semid + 496]!=1) then
+		[([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP -1) % 512)]=-1;
+		SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+		[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9]=0;
+		ireturn;
+	endif;
+	alias semindex R7;							// Semaphore Index in SemaphoreTable
+	semindex = [[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]*512 + 2*semid + 496 +1];
+	if([SEMAPHORE_TABLE + semindex*4]!=-1) then				// Semaphore is locked
+		if([SEMAPHORE_TABLE + semindex*4]!=[SYSTEM_STATUS_TABLE + 1]) then
+			[([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP -1) % 512)]=-2;
+			SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+			[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9]=0;
+			ireturn;
+		endif;
+		[SEMAPHORE_TABLE + semindex * 4] = -1;				// locking pid = -1
+		alias i R8;
+		i=0;
+		while(i<MAX_PROC_NUM) do
+			if([PROCESS_TABLE + i*16 + 4]==WAIT_SEMAPHORE && [PROCESS_TABLE + i*16 + 5]==semindex) then
+				[PROCESS_TABLE + i*16 +4] = READY;
+			endif;
+			i = i+1;
+		endwhile;
+		[([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP -1) % 512)]=0;
+		SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+		[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9]=0;
+		ireturn;
+	endif;
+endif;

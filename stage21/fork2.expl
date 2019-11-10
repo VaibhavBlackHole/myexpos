@@ -1,0 +1,16 @@
+int main(){
+	decl
+		int temp, pid;
+		string input;
+	enddecl
+	begin
+		temp = exposcall("Read",-1,input);
+		pid = exposcall("Fork");
+		if(pid!=0) then
+			temp = exposcall("Exec",input);
+		else
+			temp = exposcall("Exec",input);
+		endif;
+		return 0;
+	end
+}

@@ -1,0 +1,117 @@
+// THIS IS PROCESS_MANAGER
+
+alias functionNum R1;
+
+if(functionNum==1) then			// new pid for child process, get_pcb_entry
+	alias i R2;
+	i = 1;
+	while(i<MAX_PROC_NUM) do
+		if([PROCESS_TABLE + (i * 16) + 4]==TERMINATED) then
+			R0 = i;
+			[PROCESS_TABLE + (i * 16) + 1]= i;				// PID
+			[PROCESS_TABLE + (i * 16) + 4]=	ALLOCATED;			// STATE
+			[PROCESS_TABLE + (i * 16) + 14]=PAGE_TABLE_BASE + 20*i;		// PTBR 
+			[PROCESS_TABLE + (i * 16) + 15]=10;				// PTLR
+			return;
+		endif;
+		i = i+1;
+	endwhile;
+	R0 = -1;
+	return;
+endif;
+
+if(functionNum==2) then			// free_user_area_page
+	alias currentPID R2;			// current PID is passed for module_1
+	alias uapn R3;
+	uapn = [PROCESS_TABLE + (currentPID * 16) + 11];
+	multipush(R1,R2,R3);		// store before module call
+	R1 = 2;			// release Page
+	R2 = uapn;			// see the arguments release page takes
+	call MEMORY_MANAGER;			// Memory_Manager
+	multipop(R1,R2,R3);
+	return;	
+endif;
+
+if(functionNum==3) then			// exit process
+	if([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9]!=9) then		// not exec
+		alias i R3;
+		i=0;
+		while(i<MAX_PROC_NUM) do
+			if([PROCESS_TABLE + (i*16) + 4]==WAIT_PROCESS && [PROCESS_TABLE + (i*16) + 5]==R2) then
+				[PROCESS_TABLE + (i*16) + 4] = READY;
+			endif;
+			if([PROCESS_TABLE + (i*16) + 2]==R2) then
+				[PROCESS_TABLE + (i*16) + 2] = -1;
+			endif;
+			i = i+1;
+		endwhile;
+	endif;
+	alias currentPID R2;			// current PID is passed for module_1
+	multipush(R1,R2);
+	R1 = 4;				// free_page_table
+	call PROCESS_MANAGER;
+	multipop(R1,R2);
+	multipush(R1,R2);
+	R1 = 2;				// free_user_area_page
+	call PROCESS_MANAGER;
+	multipop(R1,R2);
+	[PROCESS_TABLE + (currentPID * 16) + 4] = TERMINATED;
+	return;
+endif;
+
+if(functionNum==4) then			// free_page_table
+	alias currentPID R2;			// current PID is passed for module_1
+	alias pageTable R4;
+	pageTable = PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20);
+	[pageTable + 0] = -1;
+	[pageTable + 1] = "0000";
+	[pageTable + 2] = -1;
+	[pageTable + 3] = "0000";
+	alias pageNum R5;
+	pageNum = 2;
+	while(pageNum<4) do			// heap
+		if([DISK_MAP_TABLE + currentPID * 10 + pageNum]!=-1) then
+			multipush(R0,R1,R2,R3,R4,R5);
+			R1 = 4;				// release_block in Memory Manager
+			R2 = [DISK_MAP_TABLE + currentPID * 10 + pageNum];		// blockNumber
+			R3 = currentPID;
+			call MEMORY_MANAGER;
+			multipop(R0,R1,R2,R3,R4,R5);
+		endif;
+	 	pageNum = pageNum + 1;			
+	endwhile;
+
+	pageNum = 8;
+	while(pageNum<10) do			// stack
+		if([DISK_MAP_TABLE + currentPID * 10 + pageNum]!=-1) then
+			multipush(R0,R1,R2,R3,R4,R5);
+			R1 = 4;				// release_block in Memory Manager
+			R2 = [DISK_MAP_TABLE + currentPID * 10 + pageNum];		// blockNumber
+			R3 = currentPID;
+			call MEMORY_MANAGER;
+			multipop(R0,R1,R2,R3,R4,R5);
+		endif;
+		pageNum = pageNum + 1;
+	endwhile;	
+	
+	pageNum = 2;
+	while(pageNum<10) do
+		[DISK_MAP_TABLE + 10 * currentPID + pageNum] = -1;
+		pageNum = pageNum + 1;
+	endwhile;
+
+	pageNum = 4;			// 20 pages for one process
+	while(pageNum < 20) do
+		if([pageTable + pageNum]!=-1) then
+			multipush(R0,R1,R2,R3,R4,R5);
+			R1 = 2;		// Release_page
+			R2 = [pageTable + pageNum];		// takes uapn
+			call MEMORY_MANAGER;
+			multipop(R0,R1,R2,R3,R4,R5);
+			[pageTable + pageNum] = -1;
+			[pageTable + pageNum + 1] = "0000";
+		endif;
+		pageNum = pageNum + 2;
+	endwhile;
+	return;
+endif;
