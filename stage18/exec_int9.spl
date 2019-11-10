@@ -1,0 +1,149 @@
+// THIS IS INT_9 file for exec system call
+
+alias userSP R5;
+userSP = SP;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 -1;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 9;		// MODE to system call number of exec
+
+alias fileName R1;
+fileName = [[PTBR + 2*((userSP - 4) / 512)] * 512 + ((userSP - 4) % 512)];
+alias count R2;
+count = 0;
+
+// size of each table is 16 and max number of files are 60
+while(count<MAX_FILE_NUM) do
+	if([INODE_TABLE + (count * 16) + 1]==fileName && [INODE_TABLE + (count * 16) + 0]==EXEC) then
+		break;
+	endif;
+	count = count+1;
+endwhile;
+
+if(count==MAX_FILE_NUM) then
+	alias physicalAddrRetVal R5;
+	physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+	[physicalAddrRetVal] = -1;
+	[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+	SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+	ireturn;
+endif;
+
+multipush(R5,R1,R2);		// before calling module save context
+R1 = 3;				// function number for exit
+R2 = [SYSTEM_STATUS_TABLE + 1];	// current PID in R2
+call MOD_1;				// Process_Manager
+multipop(R5,R1,R2);
+
+alias userAreaPageNum R3;
+userAreaPageNum = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11];			// Deallocated page number
+
+[MEMORY_FREE_LIST + userAreaPageNum] = [MEMORY_FREE_LIST + userAreaPageNum] + 1;
+[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2]-1; 			// Reclaim the same page
+
+alias perProc R4;
+perProc = 494;
+while(perProc<512) do
+	[userAreaPageNum * 512 + perProc] = -1;
+	[userAreaPageNum * 512 + perProc + 1] = -1;
+	perProc = perProc + 2; 
+endwhile;
+
+SP = userAreaPageNum * 512 -1;	// initialize kernel stack of new process
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 4] = RUNNING;		// new process is in running state
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 7] = count;		// store the inode index field
+
+// Allocate new pages and set page table entries for new process
+// currentPID gives the process_number
+
+
+// Library
+alias pageTable R4;
+pageTable = PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20);
+[pageTable + 0] = 63;
+[pageTable + 1] = "0100";	// READ only
+[pageTable + 2] = 64;
+[pageTable + 3] = "0100";
+
+alias freePage R0;
+// Stack 
+
+multipush(R5,R1,R2,R3,R4);		// multipush before any module call
+R1 = 1;			// Get free page function number
+call MOD_2;			// Memory Manager
+multipop(R5,R1,R2,R3,R4);
+[pageTable + 16]= freePage;
+[pageTable + 17]= "0110";
+
+
+multipush(R5,R1,R2,R3,R4);
+R1 = 1;			// Get free page function number
+call MOD_2;			// 2 times for 2 pages of stack
+multipop(R5,R1,R2,R3,R4);
+[pageTable + 18]= freePage;
+[pageTable + 19]= "0110";
+
+// Heap
+// Similarly 2 times for heap
+
+multipush(R5,R1,R2,R3,R4);
+R1 = 1;			// Get free page function number
+call MOD_2;			// Memory Manager
+multipop(R5,R1,R2,R3,R4);
+[pageTable + 4]= freePage;
+[pageTable + 5]= "0110";
+
+multipush(R5,R1,R2,R3,R4);
+R1 = 1;			// Get free page function number
+call MOD_2;			// 2 times for 2 pages of stack
+multipop(R5,R1,R2,R3,R4);
+[pageTable + 6]= freePage;
+[pageTable + 7]= "0110";
+
+// CODE
+alias NumBlocks R6;
+alias blocks R7;
+NumBlocks = [INODE_TABLE + (count * 16) + 2] / 512;		// FILE SIZE / 512
+
+if([INODE_TABLE + count * 16 + 2] % 512 !=0) then			// as NumBlocks need not be divisible by 512
+	NumBlocks = NumBlocks + 1;
+endif;
+
+blocks = 8;
+while(blocks<15) do
+	[pageTable + blocks]=-1;
+	[pageTable + blocks + 1]="0000";
+	blocks = blocks + 2;
+endwhile;
+
+blocks = 0;
+while(NumBlocks>0) do
+	multipush(R1,R2,R3,R4,R5,R6,R7);		// multipush before any module call
+	R1 = 1;			// Get free page function number
+	call MOD_2;			// 2 times for 2 pages of stack
+	multipop(R1,R2,R3,R4,R5,R6,R7);
+	[pageTable + 8 + blocks]= freePage;
+	[pageTable + 9 + blocks]= "0100";
+	blocks = blocks + 2;
+	NumBlocks = NumBlocks -1;
+endwhile;
+
+
+// loadi(page_number, block_number)....., for loading the code blocks
+// It loads block from disk to page specified by page_number to memory
+blocks = 0;			// INODE_TABLE has max 4 DATA BLOCKS for one process
+while(blocks<4) do
+	if([INODE_TABLE + (count * 16) + 8 + blocks]!=-1) then
+		multipush(R1,R2,R3,R4,R5,R6,R7);
+		R1 = 2;						// disk load
+		R2 = [SYSTEM_STATUS_TABLE + 1];
+		R3 = [pageTable + 8 + (2 * blocks)];				// page number
+		R4 = [INODE_TABLE + (count * 16) + 8 + blocks];		// block number
+		call MOD_4;			// device manager
+		multipop(R1,R2,R3,R4,R5,R6,R7);
+	endif;
+	blocks = blocks + 1;
+endwhile;
+[[(pageTable + 16)] * 512]=[[pageTable + 8] * 512 + 1];		// Set up the SP to code's entry point
+SP = 8*512;			// change SP to user Stack
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] =0;
+ireturn;
