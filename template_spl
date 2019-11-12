@@ -1,2 +1,0 @@
-./spl $HOME/myexpos/spl/spl_progs/interrupt_file_name.spl
-./spl $HOME/myexpos/spl/spl_progs/os_startup.spl
