@@ -1,0 +1,46 @@
+int main()
+{
+decl
+    int temp,fid, fid1, fid2, fid3, fid4, fid5, fid6, fid7, fid8, fid9;
+    string filename,word;
+enddecl
+
+begin    
+    temp=exposcall("Create","new4.dat",0);
+    fid=exposcall("Open", "new4.dat");
+    if(fid!=-1) then
+           temp=exposcall("Write",fid,"ijklmn");
+           temp=exposcall("Close",fid);
+    endif;
+     
+    temp=exposcall("Test1","link11.lnk","new4.dat");
+    temp=exposcall("Test1","link12.lnk","new4.dat");
+    fid1=exposcall("Open", "link11.lnk");
+    fid2=exposcall("Open", "link11.lnk");
+    fid3=exposcall("Open", "link11.lnk");
+    fid4=exposcall("Open", "link11.lnk");
+    fid5=exposcall("Open", "link12.lnk");
+    fid6=exposcall("Open", "link12.lnk");
+    fid7=exposcall("Open", "link12.lnk");
+    fid8=exposcall("Open", "link12.lnk");
+    fid9=exposcall("Open", "link12.lnk");
+    if(fid1!=-1) then
+               temp=exposcall("Read",fid1,word);
+               temp=exposcall("Write",-2, "file content is");
+               temp=exposcall("Write",-2,word); 
+               temp=exposcall("Close",fid1);           
+    endif;
+    if(fid8!=-1) then                            
+       temp=exposcall("Write",-2, "fid8 open");
+    endif;
+     if(fid9 == -1) then                            
+       temp=exposcall("Write",-2, "fid9 not open");
+     else
+       temp=exposcall("Write",-2, "fid9 open"); 
+     endif;
+   
+    return 0;
+end
+}
+
+

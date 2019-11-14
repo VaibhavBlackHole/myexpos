@@ -1,0 +1,21 @@
+int main()
+{
+decl
+    int temp;
+enddecl
+
+begin
+    temp = exposcall("Test1","link5.lnk","one.xsm");
+    if(temp == 0) then
+        temp=exposcall("Write", -2, "exec link5");
+   	temp=exposcall("Exec","link5.lnk");
+        temp=exposcall("Write",-2,"exec fail");
+    else
+        temp=exposcall("Write",-2,"link5 creat fail");
+    endif;     
+        
+    return 0;
+end
+}
+
+

@@ -1,0 +1,36 @@
+int main()
+{
+decl
+    int temp,fid, fid1, fd2;
+    string filename,word;
+enddecl
+
+begin
+    
+    temp=exposcall("Create","new.dat",0);
+    temp=exposcall("Test1","link1.lnk","new.dat");
+    if(temp==0) then
+	temp=exposcall("Write",-2,"link1 create done");
+        fid=exposcall("Open", "link1.lnk");
+        if(fid!=-1) then
+           temp=exposcall("Write",-2, "link open success");
+           temp=exposcall("Write",fid,"abcd");
+           temp=exposcall("Delete","new.dat");
+           if(temp==-2) then
+             temp=exposcall("Write",-2, "not deleting");
+           endif;
+           temp=exposcall("Close",fid);
+           fid1=exposcall("Open", "new.dat");
+           if(fid1!=-1) then
+               temp=exposcall("Read",fid1,word);
+               temp=exposcall("Write",-2, "file content is");
+               temp=exposcall("Write",-2,word); 
+               temp=exposcall("Close",fid1);           
+           endif;
+        endif;        
+    endif;
+    return 0;
+end
+}
+
+

@@ -1,0 +1,96 @@
+// INT_18 for Create system call in "Test1"
+
+alias syscallNo R4;
+alias userSP R5;
+alias pid R12;
+alias retVal R13;
+alias processTable R15;
+pid = [SYSTEM_STATUS_TABLE + 1];
+processTable = PROCESS_TABLE + 16 * pid;
+userSP = SP;
+retVal = [PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512;
+syscallNo = [[PTBR + 2 * ((userSP - 5) / 512)] * 512 + (userSP - 5) % 512];
+[processTable + 13] = SP;
+SP = [processTable + 11] * 512 -1;
+if(syscallNo==97) then								// Create
+	[processTable + 9] = 1;		// MODE
+	alias linkName R6;
+	alias targetFile R7;
+	alias index R8;
+	alias i R14;
+	i = 0;
+	index = -1;
+	linkName = [[PTBR + 2 * ((userSP -4) / 512)] * 512 + (userSP - 4) %512];
+	targetFile = [[PTBR + 2 * ((userSP -3) / 512)] * 512 + (userSP - 3) %512];
+	while(i<MAX_FILE_NUM) do
+		if([INODE_TABLE + i * 16 + 1]==linkName) then			// link already present 
+			if([INODE_TABLE + i * 16 + 5]==targetFile) then
+				[retVal] = 0;	
+			else
+				[retVal] = -1;		`	`		// target file is not the same
+			endif;
+			SP = [processTable + 13];
+			[processTable + 9] = 0;
+			ireturn;
+		endif;
+		if([INODE_TABLE + i * 16 + 1]==targetFile) then
+			index = i;
+			if([INODE_TABLE + i * 16 + 0]==ROOT) then
+				[retVal] = -3;					// target file is not DATA or EXEC
+				SP = [processTable + 13];
+				[processTable + 9] = 0;
+				ireturn;
+			endif;
+			break;
+		endif;
+		i = i+1;	
+	endwhile;
+	if(index==-1) then							// target file not present
+		[retVal] = -2;
+		SP = [processTable + 13];
+		[processTable + 9] = 0;
+		ireturn;
+	endif;			
+	i=0;									// Look for free entry in inode table, also target is there
+	while(i<MAX_FILE_NUM) do
+		if([INODE_TABLE + i * 16 + 1]==-1) then
+			break;
+		endif;
+		i = i+1;
+	endwhile;
+	if(i==MAX_FILE_NUM) then						// Inode table is full
+		[retVal] = -4;
+		SP = [processTable + 13];
+		[processTable + 9] = 0;
+		ireturn;
+	endif;
+										// index of free entry in inode table is stored in i
+	alias inodeEntry R9;
+	inodeEntry = INODE_TABLE + i*16;
+	[inodeEntry + 0] = DATA;				// FILE TYPE
+	[inodeEntry + 1] = linkName;				// LINk_NAME
+	[inodeEntry + 2] = 0;					// FILE_SIZE
+	[inodeEntry + 8] = -1;
+	[inodeEntry + 9] = -1;					// NO DISK_BLOCK allocated 
+	[inodeEntry + 10] = -1;
+	[inodeEntry + 11] = -1;
+	alias userID R10;
+	userID = [processTable + 3];
+	[inodeEntry + 3] = userID;
+	[inodeEntry + 4] = OPEN_ACCESS;					// permission is set 
+	[inodeEntry + 5] = targetFile;					// using the unused data
+	[inodeEntry + 6] = [INODE_TABLE + index * 16 + 0];		// type of target file is also stored
+	alias rootEntry R11;
+	rootEntry = ROOT_FILE +	i*8;
+	[rootEntry + 0] = linkName;
+	[rootEntry + 1] = 0;
+	[rootEntry + 2] = DATA;
+	[rootEntry + 3] = [USER_TABLE + userID * 2 + 0];		// UserName
+	[rootEntry + 4] = OPEN_ACCESS;
+	[rootEntry + 5] = targetFile;					
+	[rootEntry + 6] = [INODE_TABLE + index * 16 + 0];		// root also stores the target file and type of target file 
+	[retVal] = 0;
+	SP = [processTable + 13];
+	[processTable + 9] = 0;
+	ireturn;
+endif;

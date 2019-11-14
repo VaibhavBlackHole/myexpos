@@ -1,0 +1,46 @@
+int main()
+{
+decl
+    int temp,temp1,temp2,temp3,fid, fid1, fid2;
+    string filename,word,word1,word2;
+enddecl
+
+begin
+    word1="wwwwww";
+    temp1=exposcall("Test1","link6.lnk","file1.dat");
+    temp2=exposcall("Test1","link7.lnk","file2.dat");
+    temp3=exposcall("Test1","link8.lnk","file2.dat");
+     
+    if(temp1==0 AND temp2 ==0 AND temp3==0) then
+	temp=exposcall("Write",-2,"link create done");
+        fid=exposcall("Open", "link6.lnk");
+        if(fid!=-1) then
+           temp=exposcall("Write",-2, "link6 is open");
+           temp=exposcall("Read",fid,word);
+           temp=exposcall("Write",-2,word); 
+           temp=exposcall("Read",fid,word);
+           temp=exposcall("Write",-2,word); 
+           temp=exposcall("Read",fid,word);
+           temp=exposcall("Write",-2,word);             
+           temp=exposcall("Close",fid);
+        endif;    
+        fid1=exposcall("Open", "link7.lnk");
+        fid2=exposcall("Open", "link8.lnk");
+        if(fid1 !=-1) then
+	   temp=exposcall("Write",-2, "link7 is open");
+           temp=exposcall("Write",fid1,word1); 
+           temp=exposcall("Close",fid1);
+        endif;
+        if(fid2 !=-1) then
+           temp=exposcall("Write",-2, "link8 is open");
+           temp=exposcall("Read",fid2,word2);
+           temp=exposcall("Write",-2,word2);  
+           temp=exposcall("Close",fid2);
+        endif;
+    
+    endif;
+    return 0;
+end
+}
+
+

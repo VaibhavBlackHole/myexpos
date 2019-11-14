@@ -1,0 +1,155 @@
+// INT_4 for Create and Delete System call
+
+alias syscallNo R4;
+alias userSP R5;
+alias pid R12;
+alias retVal R13;
+alias processTable R15;
+pid = [SYSTEM_STATUS_TABLE + 1];
+processTable = PROCESS_TABLE + 16 * pid;
+userSP = SP;
+retVal = [PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512;
+syscallNo = [[PTBR + 2 * ((userSP - 5) / 512)] * 512 + (userSP - 5) % 512];
+[processTable + 13] = SP;
+SP = [processTable + 11] * 512 -1;
+if(syscallNo==1) then								// Create
+	[processTable + 9] = 1;		// MODE
+	alias fileName R6;
+	alias permission R7;
+	alias index R8;
+	alias i R14;
+	i = 0;
+	index = -1;
+	fileName = [[PTBR + 2 * ((userSP -4) / 512)] * 512 + (userSP - 4) %512];
+	permission = [[PTBR + 2 * ((userSP -3) / 512)] * 512 + (userSP - 3) %512];
+	while(i<MAX_FILE_NUM) do
+		if([INODE_TABLE + i * 16 + 1]==fileName) then	// File already present 
+			[retVal] = 0;
+			SP = [processTable + 13];
+			[processTable + 9] = 0;
+			ireturn;
+		endif;
+		if([INODE_TABLE + i * 16 + 1]==-1 && index==-1) then
+			index = i;
+		endif;
+		i = i+1;	
+	endwhile;
+	if(index==-1) then
+		[retVal] = -1;
+		SP = [processTable + 13];
+		[processTable + 9] = 0;
+		ireturn;
+	endif;
+	alias inodeEntry R9;
+	inodeEntry = INODE_TABLE + index*16;
+	[inodeEntry + 0] = DATA;				// FILE TYPE
+	[inodeEntry + 1] = fileName;			// FILE_NAME
+	[inodeEntry + 2] = 0;				// FILE_SIZE
+	[inodeEntry + 8] = -1;
+	[inodeEntry + 9] = -1;				// NO DISK_BLOCK allocated 
+	[inodeEntry + 10] = -1;
+	[inodeEntry + 11] = -1;
+	alias userID R10;
+	userID = [processTable + 3];
+	[inodeEntry + 3] = userID;
+	[inodeEntry + 4] = permission;
+	alias rootEntry R11;
+	rootEntry = ROOT_FILE +	index*8;
+	[rootEntry + 0] = fileName;
+	[rootEntry + 1] = 0;
+	[rootEntry + 2] = DATA;
+	[rootEntry + 3] = [USER_TABLE + userID * 2 + 0];		// UserName
+	[rootEntry + 4] = permission;
+	[retVal] = 0;
+	SP = [processTable + 13];
+	[processTable + 9] = 0;
+	ireturn;
+endif;
+
+if(syscallNo==4) then					// Delete
+	[processTable + 9] = 4;			// MODE
+	alias fileName R6;
+	alias index R7;
+	index = 0;
+	fileName = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];				// can be target name of link name
+	multipush(R4,R5,R6,R7,R12,R13,R15);
+	R1 = fileName;																		// fileName is input
+	call PAGER_MODULE;
+	multipop(R4,R5,R6,R7,R12,R13,R15);
+	index = R0;										// Return from Pager_Module
+	if(index==-1 || R2==2) then								// FILE not Present, or file is linked file
+		[retVal] = 0;
+		SP = [processTable + 13];
+		[processTable + 9] = 0;
+		ireturn;
+	endif;
+	
+	if([INODE_TABLE + index * 16 + 0]!=DATA) then			// FILE not DATA
+		[retVal] = -1;
+		SP = [processTable + 13];
+		[processTable + 9] = 0;
+		ireturn;
+	endif;
+	if([INODE_TABLE + index * 16 + 4]==EXCLUSIVE) then			// Exclusive Permission
+		if([INODE_TABLE + index * 16 + 3]!=ROOT && [processTable + 3]!=[INODE_TABLE + index * 16 + 3]) then				// owners are not same
+			[retVal] = -1;
+			SP = [processTable + 13];
+			[processTable + 9] = 0;
+			ireturn;
+		endif;
+	endif;
+	
+	// Means file was a target file
+
+	multipush(R4,R5,R6,R7,R12,R13,R15);
+	R1 = 4;								// Acquire INODE, lock
+	R2 = index;
+	R3 = pid;
+	call RESOURCE_MANAGER;
+	multipop(R4,R5,R6,R7,R12,R13);
+	if([FILE_STATUS_TABLE + index * 4 + 1]!=-1) then		// File Open COUNT
+		multipush(R4,R5,R6,R7,R12,R13,R15);
+		R1 = 5;							// Release INODE, lock
+		R2 = index;
+		R3 = pid;
+		call RESOURCE_MANAGER;
+		multipop(R4,R5,R6,R7,R12,R13,R15);
+		[retVal] = -2;
+		SP = [processTable + 13];
+		[processTable + 9] = 0;
+		ireturn;
+	endif;
+	alias i R8;
+	alias buffNo R9;
+	alias block R10;
+	i = 8;
+	while(i<12) do
+		block = [INODE_TABLE + index * 16 + i];
+		if(block==-1) then		// Disk block is not allocated
+			break;	
+		endif;
+		buffNo = block % MAX_BUFFER;
+		if([BUFFER_TABLE + buffNo * 4 + 0]==block && [BUFFER_TABLE + buffNo * 4 + 1]==1) then					// Disk block is in buffer, and dirty bit is set
+			[BUFFER_TABLE + buffNo * 4 + 1]=0;		// Reset Dirty Bit
+			multipush(R4,R5,R6,R7,R8,R9,R10,R12,R13,R15);
+			R1 = 4;						// Release Block
+			R2 = block;
+			R3 = pid;
+			call MEMORY_MANAGER;
+			multipop(R4,R5,R6,R7,R8,R9,R10,R12,R13,R15);
+		endif;
+		i = i+1;
+	endwhile;
+	[INODE_TABLE + index * 16 + 1]=-1;
+	[ROOT_FILE + index * 8 + 0] = -1;
+	multipush(R4,R5,R6,R7,R8,R9,R10,R12,R13,R15);
+	R1 = 5;								// Release INODE, lock
+	R2 = index;
+	R3 = pid;
+	call RESOURCE_MANAGER;
+	multipop(R4,R5,R6,R7,R8,R9,R10,R12,R13,R15);
+	[retVal] = 0;
+	SP = [processTable + 13];
+	[processTable + 9] = 0;
+	ireturn;
+endif;

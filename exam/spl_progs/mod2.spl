@@ -1,0 +1,88 @@
+// THIS IS MEMORY MANAGER
+
+alias functionNum R1;
+if(functionNum==1) then			// get_free_page
+	[SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] + 1;		// Increase the wait_mem_count
+	
+	while([SYSTEM_STATUS_TABLE + 2]==0) do	// memory is full
+		[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 4] = WAIT_MEM;
+		multipush(R0,R1,R2,R3,R4,R5);
+		call SCHEDULER;			// scheduler
+		multipop(R0,R1,R2,R3,R4,R5);
+	endwhile;
+	[SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] - 1;
+	[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+	
+	alias memList R2;
+	memList = 76;			// loop through the memList
+	while(memList<MAX_MEM_PAGE) do
+		if([MEMORY_FREE_LIST + memList] == 0) then
+			[MEMORY_FREE_LIST + memList]=1;
+			R0 = memList;
+			return;
+		endif;
+		memList = memList + 1;
+	endwhile;
+endif;
+
+if(functionNum==2) then				// release page
+	alias uapn R2;			// input in release page
+	[MEMORY_FREE_LIST + uapn]=[MEMORY_FREE_LIST + uapn]-1;
+	if([MEMORY_FREE_LIST + uapn]==0) then
+		[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;
+	endif;
+	alias counter R3;
+	counter = 0;			// loop through the process_table
+	while(counter<MAX_PROC_NUM) do		// counter is the PID, max_num_process 
+		if([PROCESS_TABLE + (counter * 16) + 4] == WAIT_MEM) then
+			[PROCESS_TABLE + (counter * 16) + 4] = READY;
+		endif;
+		counter = counter + 1;
+	endwhile;
+	return;
+endif;
+
+if(functionNum==4) then			// Release Block
+	[DISK_FREE_LIST + R2] = [DISK_FREE_LIST + R2] -1;	// R2 has block number
+	return;
+endif;
+
+if(functionNum==5) then			// get code page
+	alias ret R0;
+	alias procNo R4;
+	alias i R5;			// R2 stores the disk_block number
+	alias uapn R6;
+	procNo = 0;
+	while(procNo<MAX_PROC_NUM) do
+		i = 0;
+		while(i<4) do
+			if(([DISK_MAP_TABLE + (procNo * 10) + i + 4] == R2) && ([PAGE_TABLE_BASE + (procNo * 20) + 2*i + 8]!=-1)) then		// code page is in memory
+				uapn = i+4;
+				uapn = [PAGE_TABLE_BASE +(procNo * 20) + 2 * uapn];
+				[MEMORY_FREE_LIST + uapn] = [MEMORY_FREE_LIST + uapn] + 1; 
+				ret = uapn;
+				return; 
+			endif;
+			i = i+1;		
+		endwhile;	
+		procNo = procNo + 1;
+	endwhile;
+	
+	// Code page is not in memory
+	multipush(R1,R2,R3,R4,R5,R6);
+	R1 = 1;				// Get_free_page()
+	call MEMORY_MANAGER;			// Memory_Manager
+	multipop(R1,R2,R3,R4,R5,R6);		// R0 has the returned free_page
+	uapn = R0;
+	R7 = uapn;
+	R8 = R2;
+	multipush(R1,R2,R3,R4,R5,R6);
+	R1 = 2;					// disk load
+	R2 = [SYSTEM_STATUS_TABLE + 1];
+	R3 = R7;
+	R4 = R8;		// R2 stores the disk_block from exec sys call (int_9)
+	call DEVICE_MANAGER;				// Device Manager
+	multipop(R1,R2,R3,R4,R5,R6);
+	ret = uapn;
+	return;					// R0 already has memory_page from get free page
+endif;

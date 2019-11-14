@@ -1,0 +1,53 @@
+// SHUTDOWN
+
+alias pid R4;
+alias userSP R5;
+alias retVal R6;
+userSP = SP;
+retVal = [PTBR + 2 * ((userSP -1) / 512)] * 512 + (userSP - 1) % 512;
+pid = [SYSTEM_STATUS_TABLE + 1];
+[PROCESS_TABLE + pid * 16 + 13] = SP;
+SP = [PROCESS_TABLE + pid * 16 + 11] * 512 -1;
+[PROCESS_TABLE + pid * 16 + 9] = 21;					// System call number 
+if(pid!=1 || [PROCESS_TABLE + pid * 16 + 3]!=ROOT) then
+	[retVal] = -1;
+	[PROCESS_TABLE + pid * 16 + 9] = 0;
+	SP = [PROCESS_TABLE + pid * 16 + 13];
+	ireturn;
+endif;
+
+// Commit changes made in memory copies of inode table, root file and disk free list
+
+// Memory copy of inode table + userTable
+multipush(R4,R5,R6);
+R1 = 1;
+R2 = pid;
+R3 = 59;					// Memory page
+R4 = 3;						// disk page
+call DEVICE_MANAGER;
+R1 = 1;
+R2 = pid;
+R3 = 60;					// Memory page
+R4 = 4;						// disk page
+call DEVICE_MANAGER;
+multipop(R4,R5,R6);
+
+// Memory copy of Disk Free List
+multipush(R4,R5,R6);
+R1 = 1;
+R2 = pid;
+R3 = 61;					// Memory page
+R4 = 2;						// disk page
+call DEVICE_MANAGER;
+multipop(R4,R5,R6);
+
+// Memory copy of Root file
+multipush(R4,R5,R6);
+R1 = 1;
+R2 = pid;
+R3 = 62;					// Memory page
+R4 = 5;						// disk page
+call DEVICE_MANAGER;
+multipop(R4,R5,R6);
+
+halt;

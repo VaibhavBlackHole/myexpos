@@ -1,0 +1,33 @@
+// THIS is pager module, but we have used it for delete function in int_4
+
+alias fileName R1;
+alias index R4;
+alias i R5;
+index = 0;
+while(index<MAX_FILE_NUM) do
+	if([INODE_TABLE + index * 16 + 1]==fileName) then			// file Found
+		R0 = index;
+		if([INODE_TABLE + index * 16 + 5]!=-1) then
+			R2 = 2;							// FIle is a link_file
+			[INODE_TABLE + index * 16 + 1] = -1;
+			[INODE_TABLE + index * 16 + 5] = -1;
+			[ROOT_FILE + index * 8 + 0] = -1;
+		else
+			i = 0;
+			R2 = 1;							// File is a target_file
+			if([INODE_TABLE + index * 16 + 0]==DATA) then					// unlinking
+				while(i<MAX_FILE_NUM) do
+					if([INODE_TABLE + i * 16 + 5]==fileName) then
+						[INODE_TABLE + i * 16 + 1] = -1;
+						[ROOT_FILE + i * 8 + 0] = -1;
+					endif;
+					i = i+1;
+				endwhile;
+			endif;
+		endif;
+		return;								
+	endif;
+	index = index +1;
+endwhile;
+R0 = -1;										// File not found
+return;
