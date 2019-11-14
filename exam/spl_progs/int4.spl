@@ -71,7 +71,7 @@ if(syscallNo==4) then					// Delete
 	alias fileName R6;
 	alias index R7;
 	index = 0;
-	fileName = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];				// can be target name of link name
+	fileName = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];		// can be target name of link name
 	multipush(R4,R5,R6,R7,R12,R13,R15);
 	R1 = fileName;																		// fileName is input
 	call PAGER_MODULE;
